@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Personal health goals",
+      "type": "object",
+      "properties": {
+        "steps": { "type": "number" },
+        "distance": { "type": "number" },
+        "calories": { "type": "number" },
+        "activeMinutes": { "type": "number" },
+        "water": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Workout": {
+      "title": "Workout",
+      "description": "A single workout session record",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "category": { "type": "string", "enum": ["Strength", "Running", "Mobility"] },
+        "date": { "type": "string" },
+        "duration": { "type": "string" },
+        "intensity": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "calories": { "type": "number" },
+        "exercises": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "sets": { "type": "number" },
+              "reps": { "type": "string" },
+              "weight": { "type": "string" }
+            }
+          }
+        },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "category", "date", "calories", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/goals/current": {
+      "schema": "Goal",
+      "description": "User's current goals"
+    },
+    "/users/{userId}/workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "User's workout history"
+    }
+  }
+}

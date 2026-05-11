@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definitions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Phase 4: Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.keys().size() == 4 && // uid, email, displayName, createdAt
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidGoal(data) {
+      return data.keys().hasAll(['steps', 'distance', 'calories', 'activeMinutes', 'water', 'updatedAt']) &&
+             data.steps is number && data.steps >= 0 &&
+             data.distance is number && data.distance >= 0 &&
+             data.calories is number && data.calories >= 0 &&
+             data.activeMinutes is number && data.activeMinutes >= 0 &&
+             data.water is number && data.water >= 0 &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidWorkout(data) {
+      return data.keys().hasAll(['type', 'category', 'date', 'duration', 'intensity', 'calories', 'userId', 'createdAt']) &&
+             data.type is string && data.type.size() <= 200 &&
+             data.category in ['Strength', 'Running', 'Mobility'] &&
+             data.intensity in ['High', 'Medium', 'Low'] &&
+             data.calories is number && data.calories >= 0 &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    // 1. User Profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName']) &&
+        incoming().displayName is string && incoming().displayName.size() <= 100
+      );
+    }
+
+    // 2. Goals
+    match /users/{userId}/goals/current {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidGoal(incoming());
+    }
+
+    // 3. Workouts
+    match /users/{userId}/workouts/{workoutId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(workoutId) && isValidWorkout(incoming());
+      allow update: if isOwner(userId) && (
+        // Action: Edit details
+        (incoming().diff(existing()).affectedKeys().hasOnly(['type', 'category', 'intensity', 'exercises']) &&
+         isValidWorkout(incoming()))
+      );
+      allow delete: if isOwner(userId);
+    }
+  }
+}
